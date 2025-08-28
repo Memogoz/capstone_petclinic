@@ -4,47 +4,71 @@
   become: true
 
   vars:
-    docker_image_name: "my-org/petclinic"
-    docker_image_tag: "v1.3.0"        # This can be passed as --extra-vars
-    mysql_host: "mysql.example.com"
-    mysql_user: "petclinic_user"
-    mysql_password: "secure_password"
-    app_port: 8080
+    ecr_image_url: "{{ ecr_url }}/{{ image_name }}"
+    postgres_port: 5432
+    postgres_user: {{ postgres_user }}
+    postgres_password: {{ postgres_password }}
+    postgres_db: {{ postgres_db }}
+
 
   tasks:
+    - name: Ensure Docker is installed
+      package:
+        name: docker
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: true
 
     - name: Stop and remove existing container
-      docker_container:
-        name: petclinic
-        state: absent
-        force_kill: true
-
-    - name: Remove old image (if exists)
-      docker_image:
-        name: "{{ docker_image_name }}"
-        tag: "{{ docker_image_tag }}"
-        state: absent
+      shell: |
+        docker stop {{ image_name }} || true
+        docker rm {{ image_name }} || true
       ignore_errors: true
 
-    - name: Pull latest image from Docker registry
-      docker_image:
-        name: "{{ docker_image_name }}"
-        tag: "{{ docker_image_tag }}"
+    - name: Remove old container
+      community.docker.docker_container:
+        name: "{{ image_name }}"
+        state: absent
+
+    - name: Pull new Docker image
+      community.docker.docker_image:
+        name: "{{ ecr_url }}"
+        tag: "{{ image_tag }}"
         source: pull
 
-    - name: Run the Docker container
-      docker_container:
-        name: petclinic
-        image: "{{ docker_image_name }}:{{ docker_image_tag }}"
+    - name: Run new container
+      community.docker.docker_container:
+        name: "{{ image_name }}"
+        image: "{{ ecr_url }}:{{ image_tag }}"
         state: started
         restart_policy: always
-        ports:
-          - "{{ app_port }}:8080"
+        published_ports:
+          - "80:8080"
         env:
-          SPRING_DATASOURCE_URL: "jdbc:mysql://{{ mysql_host }}:3306/petclinic"
-          SPRING_DATASOURCE_USERNAME: "{{ mysql_user }}"
-          SPRING_DATASOURCE_PASSWORD: "{{ mysql_password }}"
+          POSTGRES_USER: "{{ postgres_user }}"
+          POSTGRES_PASSWORD: "{{ postgres_password }}"
+          POSTGRES_DB: "{{ postgres_db }}"
 
-    - name: Print application access link
+
+    - name: Wait for app to start
+      wait_for:
+        port: 80
+        delay: 5
+        timeout: 60
+        state: started
+
+    - name: Verify DB connection from inside container
+      command: >
+        docker exec {{ image_name }}
+        nc -z {{ postgres_host }} {{ postgres_port }}
+      register: db_check
+      failed_when: db_check.rc != 0
+      changed_when: false
+
+    - name: Report success
       debug:
-        msg: "Application deployed at http://{{ inventory_hostname }}:{{ app_port }}/"
+        msg: "Java app deployed successfully and connected to the database!"

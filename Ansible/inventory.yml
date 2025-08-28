@@ -1,11 +1,12 @@
 plugin: amazon.aws.aws_ec2
 regions:
   - us-east-1
+filters:
+  tag:Role: webserver
+  instance-state-name: running
+hostnames:
+  - private_ip_address
 keyed_groups:
   - key: tags.Role
     prefix: ""
     separator: ""
-hostnames:
-  - private_ip_address
-filters:
-  instance-state-name: running
