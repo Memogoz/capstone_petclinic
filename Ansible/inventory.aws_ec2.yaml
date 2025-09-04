@@ -4,8 +4,6 @@ regions:
 filters:
   tag:Role: webserver
   instance-state-name: running
-hostnames:
-  - private_ip_address
 compose:
   ansible_host: private_ip_address
 keyed_groups:

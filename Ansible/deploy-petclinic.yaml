@@ -1,27 +1,73 @@
 ---
 - name: Deploy Spring PetClinic to VM
-  hosts: petclinic_vm
+  hosts: all
   become: true
 
   vars:
     ecr_image_url: "{{ ecr_url }}/{{ image_name }}"
     postgres_port: 5432
-    postgres_user: {{ postgres_user }}
-    postgres_password: {{ postgres_password }}
-    postgres_db: {{ postgres_db }}
-
+    postgres_user: "{{ postgres_user }}"
+    postgres_password: "{{ postgres_password }}"
+    postgres_db: "{{ postgres_db }}"
 
   tasks:
-    - name: Ensure Docker is installed
-      package:
-        name: docker
+    - name: Install required packages for Docker
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - unzip
+          - software-properties-common
+        state: present
+        update_cache: true
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
-    - name: Start Docker service
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+        filename: docker
+
+    - name: Install Docker CE
+      apt:
+        name: docker-ce
+        state: present
+        update_cache: true
+
+    - name: Ensure Docker service is started and enabled
       service:
         name: docker
         state: started
         enabled: true
+
+    # 🔧 INSTALAR AWS CLI v2
+    - name: Download AWS CLI v2 installer
+      get_url:
+        url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /tmp/awscliv2.zip
+
+    - name: Unzip AWS CLI installer
+      unarchive:
+        src: /tmp/awscliv2.zip
+        dest: /tmp
+        remote_src: yes
+
+    - name: Install AWS CLI v2
+      shell: /tmp/aws/install
+      args:
+        creates: /usr/local/bin/aws
+
+    # ✅ LOGIN a Amazon ECR
+    - name: Log in to Amazon ECR
+      shell: |
+        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 211125684911.dkr.ecr.us-east-1.amazonaws.com
+      environment:
+        AWS_REGION: us-east-1
 
     - name: Stop and remove existing container
       shell: |
@@ -29,12 +75,12 @@
         docker rm {{ image_name }} || true
       ignore_errors: true
 
-    - name: Remove old container
+    - name: Remove old container (if exists)
       community.docker.docker_container:
         name: "{{ image_name }}"
         state: absent
 
-    - name: Pull new Docker image
+    - name: Pull new Docker image from ECR
       community.docker.docker_image:
         name: "{{ ecr_url }}"
         tag: "{{ image_tag }}"
@@ -53,7 +99,6 @@
           POSTGRES_PASSWORD: "{{ postgres_password }}"
           POSTGRES_DB: "{{ postgres_db }}"
 
-
     - name: Wait for app to start
       wait_for:
         port: 80
@@ -61,9 +106,8 @@
         timeout: 60
         state: started
 
-    - name: Verify DB connection from inside container
+    - name: Verify DB connection from the instance
       command: >
-        docker exec {{ image_name }}
         nc -z {{ postgres_host }} {{ postgres_port }}
       register: db_check
       failed_when: db_check.rc != 0
