@@ -134,6 +134,7 @@ pipeline {
         stage('Build & Push Docker Image') {
             steps {
                 script {
+
                     def isMR = env.CHANGE_ID != null
                     def awsCredentialId = env.JENKINS_AWS_CREDENTIAL // Jenkins AWS credential ID
 
@@ -148,6 +149,7 @@ pipeline {
                     docker.build(fullImageName)
 
                     // Authenticate with ECR and push the image
+                    // Example autenticate from cli:     aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <aws-account-id>.dkr.ecr.<region>.amazonaws.com
                     docker.withRegistry("https://${env.ECR_URL}", awsCredentialId) {
                         docker.image(fullImageName).push()
                     }
@@ -177,11 +179,13 @@ pipeline {
             }
             steps {
                     echo 'Deploying app with Ansible...'
-                    sh """
-                        ansible-playbook -i ./Ansible/inventory.yml ./Ansible/deploy-petclinic.yaml --extra-vars "ecr_url=${env.ECR_URL} image_name=${env.ECR_REPO_NAME} image_tag=${env.APP_VERSION} postgres_host=${env.POSTGRES_HOST} postgres_port=${env.POSTGRES_PORT} postgres_user=${env.POSTGRES_USER} postgres_password=${env.POSTGRES_PASSWORD} postgres_db=${env.POSTGRES_DB}"
-                    """
+                    sh 'export PATH="$HOME/venv/bin:$PATH"'
+                    sh 'ANSIBLE_CONFIG=./Ansible/ansible.cfg ansible-playbook -i ./Ansible/inventory.yml ./Ansible/deploy-petclinic.yaml --extra-vars "ecr_url=${env.ECR_URL} image_name=${env.ECR_REPO_NAME} image_tag=${env.APP_VERSION} postgres_host=${env.POSTGRES_HOST} postgres_port=${env.POSTGRES_PORT} postgres_user=${env.POSTGRES_USER} postgres_password=${env.POSTGRES_PASSWORD} postgres_db=${env.POSTGRES_DB}'
+                    //ansible-playbook deploy-petclinic.yaml --extra-vars 'ecr_url=211125684911.dkr.ecr.us-east-1.amazonaws.com/capstone-petclinic-images image_name=capstone-petclinic-images image_tag=latest postgres_host=ggonz-capstone-postgres-db.cfa6gw8iooov.us-east-1.rds.amazonaws.com postgres_port=5432 postgres_user=admin_ggonz postgres_password=password_ggonz postgres_db=appdb'
+
             }
         }
+    }
 
     post {
         success {
