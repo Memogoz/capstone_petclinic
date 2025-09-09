@@ -82,7 +82,7 @@
 
     - name: Pull new Docker image from ECR
       community.docker.docker_image:
-        name: "{{ ecr_url }}"
+        name: "{{ ecr_image_url }}"
         tag: "{{ image_tag }}"
         source: pull
 
