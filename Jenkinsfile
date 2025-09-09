@@ -126,9 +126,13 @@ pipeline {
                     docker.build(fullImageName)
 
                     // Push to ECR
-                    docker.withRegistry("https://${ECR_URL}") {
-                        docker.image(fullImageName).push()
-                    }
+                    sh """
+                        aws ecr get-login-password --region ${params.AWS_REGION} | \
+                        docker login --username AWS --password-stdin ${ECR_URL}
+
+                        docker push ${fullImageName}
+                    """
+
 
                     echo "Docker image pushed to ECR: ${fullImageName}"
                 }
