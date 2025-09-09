@@ -178,11 +178,25 @@ pipeline {
                 expression { return env.CHANGE_ID == null }
             }
             steps {
-                    echo 'Deploying app with Ansible...'
-                    sh 'export PATH="$HOME/venv/bin:$PATH"'
-                    sh 'ANSIBLE_CONFIG=./Ansible/ansible.cfg ansible-playbook -i ./Ansible/inventory.yml ./Ansible/deploy-petclinic.yaml --extra-vars "ecr_url=${env.ECR_URL} image_name=${env.ECR_REPO_NAME} image_tag=${env.APP_VERSION} postgres_host=${env.POSTGRES_HOST} postgres_port=${env.POSTGRES_PORT} postgres_user=${env.POSTGRES_USER} postgres_password=${env.POSTGRES_PASSWORD} postgres_db=${env.POSTGRES_DB}'
-                    //ansible-playbook deploy-petclinic.yaml --extra-vars 'ecr_url=211125684911.dkr.ecr.us-east-1.amazonaws.com/capstone-petclinic-images image_name=capstone-petclinic-images image_tag=latest postgres_host=ggonz-capstone-postgres-db.cfa6gw8iooov.us-east-1.rds.amazonaws.com postgres_port=5432 postgres_user=admin_ggonz postgres_password=password_ggonz postgres_db=appdb'
+                def region = params.AWS_REGION
+                sh """
+                    echo "Fetching Bastion IP..."
+                    BASTION_IP=\$(aws ec2 describe-instances \
+                        --region ${region} \
+                        --filters "Name=tag:Role,Values=bastion" "Name=instance-state-name,Values=running" \
+                        --query "Reservations[].Instances[].PublicIpAddress" \
+                        --output text)
 
+                    echo "Running Ansible playbook using bastion at \$BASTION_IP"
+
+                    export ANSIBLE_CONFIG=./Ansible/ansible.cfg
+
+                    ~/venv/bin/ansible-playbook \
+                        -i ./Ansible/inventory.aws_ec2.yaml \
+                        ./Ansible/deploy-petclinic.yaml \
+                        --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.aws-keys/jenkins-worker-key -W %h:%p -q ubuntu@\$BASTION_IP'" \
+                        --private-key=~/.aws-keys/web-instances-key
+                """
             }
         }
     }
