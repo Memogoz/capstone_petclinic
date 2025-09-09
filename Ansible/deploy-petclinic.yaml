@@ -65,9 +65,10 @@
     # ✅ LOGIN a Amazon ECR
     - name: Log in to Amazon ECR
       shell: |
-        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 211125684911.dkr.ecr.us-east-1.amazonaws.com
+        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin {{ ecr_url }}
       environment:
         AWS_REGION: us-east-1
+
 
     - name: Stop and remove existing container
       shell: |
