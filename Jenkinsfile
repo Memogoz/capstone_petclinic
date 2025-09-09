@@ -176,6 +176,7 @@ pipeline {
                         ~/venv/bin/ansible-playbook \
                             -i ./Ansible/inventory.aws_ec2.yaml \
                             ./Ansible/deploy-petclinic.yaml \
+                            --extra-vars "ecr_url=${ECR_URL} image_name=${ECR_REPO_NAME} image_tag=${APP_VERSION} postgres_user=${POSTGRES_USER} postgres_password=${POSTGRES_PASSWORD} postgres_db=${POSTGRES_DB} postgres_host=${POSTGRES_HOST}" \
                             --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.aws-keys/jenkins-worker-key -W %h:%p -q ubuntu@\$BASTION_IP'" \
                             --private-key=~/.aws-keys/web-instances-key || true
                     """
