@@ -71,10 +71,10 @@ pipeline {
                 script {
                     sh 'git fetch --tags'
 
-                    def nextVersion = sh(script: '~/venv/bin/python3 get_next_version.py', returnStdout: true).trim()
-                    echo "Next version: ${nextVersion}"
+                    APP_VERSION = sh(script: '~/venv/bin/python3 get_next_version.py', returnStdout: true).trim()
+                    echo "Next version: ${APP_VERSION}"
 
-                    withEnv(["APP_VERSION=${nextVersion}"]) {
+                    withEnv(["APP_VERSION=${APP_VERSION}"]) {
                         sh """
                             git tag $APP_VERSION
                             git push origin $APP_VERSION
