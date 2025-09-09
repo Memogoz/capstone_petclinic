@@ -88,42 +88,22 @@ pipeline {
         stage('Get ECR repo url, ALB url and Postgress variables') {
             steps {
                 script {
-                    // Download the state file from S3
                     sh "aws s3 cp s3://${params.S3_BUCKET}/infrastructure/terraform.tfstate ./terraform.tfstate --region ${params.AWS_REGION}"
 
-                    // Extract outputs using jq
                     def ecrRepoFullUrl = sh(script: "jq -r '.outputs.ecr_repo_url.value' ./terraform.tfstate", returnStdout: true).trim()
-                    // sample output: 123456789012.dkr.ecr.us-east-1.amazonaws.com/docker-images-repo
-                    def ecrRepoUrl = ecrRepoFullUrl.split('/')[0]
+                    ECR_URL = ecrRepoFullUrl.split('/')[0]
                     def ecrRepoName = ecrRepoFullUrl.split('/')[1]
 
-                    def websiteUrl = sh(script: "jq -r '.outputs.website_url.value' ./terraform.tfstate", returnStdout: true).trim()
+                    WEBSITE_URL     = sh(script: "jq -r '.outputs.website_url.value' ./terraform.tfstate", returnStdout: true).trim()
+                    POSTGRES_HOST   = sh(script: "jq -r '.outputs.postgres_host.value' ./terraform.tfstate", returnStdout: true).trim()
+                    POSTGRES_PORT   = sh(script: "jq -r '.outputs.postgres_port.value' ./terraform.tfstate", returnStdout: true).trim()
+                    POSTGRES_USER   = sh(script: "jq -r '.outputs.postgres_user.value' ./terraform.tfstate", returnStdout: true).trim()
+                    POSTGRES_PASSWORD = sh(script: "jq -r '.outputs.postgres_password.value' ./terraform.tfstate", returnStdout: true).trim()
+                    POSTGRES_DB     = sh(script: "jq -r '.outputs.postgres_db.value' ./terraform.tfstate", returnStdout: true).trim()
 
-                    def postgresHost = sh(script: "jq -r '.outputs.postgres_host.value' ./terraform.tfstate", returnStdout: true).trim()
-                    def postgresPort = sh(script: "jq -r '.outputs.postgres_port.value' ./terraform.tfstate", returnStdout: true).trim()
-                    def postgresUser = sh(script: "jq -r '.outputs.postgres_user.value' ./terraform.tfstate", returnStdout: true).trim()
-                    def postgresPassword = sh(script: "jq -r '.outputs.postgres_password.value' ./terraform.tfstate", returnStdout: true).trim()
-                    def postgresDb = sh(script: "jq -r '.outputs.postgres_db.value' ./terraform.tfstate", returnStdout: true).trim()
-
-
-
-                    // Set environment variables
-                    env.ECR_URL = ecrRepoUrl
-                    env.ECR_REPO_NAME = ecrRepoName
-
-                    env.WEBSITE_URL = websiteUrl
-
-                    env.POSTGRES_HOST = postgresHost
-                    env.POSTGRES_PORT = postgresPort
-                    env.POSTGRES_USER = postgresUser
-                    env.POSTGRES_PASSWORD = postgresPassword
-                    env.POSTGRES_DB = postgresDb
-
-
-                    // Print the values
-                    echo "ECR_URL = ${env.ECR_URL}"
-                    echo "ECR_REPO_NAME = ${env.ECR_REPO_NAME}"
-                    echo "WEBSITE_URL = ${env.WEBSITE_URL}"
+                    echo "ECR_URL = ${ECR_URL}"
+                    echo "ECR_REPO_NAME = ${ecrRepoName}"
+                    echo "WEBSITE_URL = ${WEBSITE_URL}"
                 }
             }
         }
@@ -132,22 +112,21 @@ pipeline {
         stage('Build & Push Docker Image') {
             steps {
                 script {
-
                     def isMR = env.CHANGE_ID != null
 
-                    // Determine image tag: commit SHA for merge requests, or APP_VERSION otherwise
-                    def tag = isMR ? "${GIT_COMMIT_SHORT}" : env.APP_VERSION
+                    // Use APP_VERSION (should also be a top-level Groovy variable)
+                    def tag = isMR ? "${GIT_COMMIT_SHORT}" : APP_VERSION
 
-                    def fullImageName = "${env.ECR_URL}/${env.ECR_REPO_NAME}:${tag}"
+                    // Use top-level Groovy vars here — not env.ECR_URL / env.ECR_REPO_NAME
+                    def fullImageName = "${ECR_URL}/${ECR_REPO_NAME}:${tag}"
 
                     echo "Building Docker image: ${fullImageName}"
 
-                    // Build Docker image using Dockerfile in the project root
+                    // Build Docker image
                     docker.build(fullImageName)
 
-                    // Authenticate with ECR and push the image
-                    // Example autenticate from cli:     aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <aws-account-id>.dkr.ecr.<region>.amazonaws.com
-                    docker.withRegistry("https://${env.ECR_URL}") {
+                    // Push to ECR
+                    docker.withRegistry("https://${ECR_URL}") {
                         docker.image(fullImageName).push()
                     }
 
@@ -155,6 +134,7 @@ pipeline {
                 }
             }
         }
+
 
         // === Main Branch ===
         stage('Wait for deploy Approval') {
