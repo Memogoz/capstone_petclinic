@@ -69,18 +69,17 @@ pipeline {
             }
             steps {
                 script {
-                    // fetch tags (if not already present)
                     sh 'git fetch --tags'
 
-                    // Save next version into environment variable
                     def nextVersion = sh(script: '~/venv/bin/python3 get_next_version.py', returnStdout: true).trim()
-                    env.APP_VERSION = nextVersion
+                    echo "Next version: ${nextVersion}"
 
-                    // Tag the Git repo and push
-                    sh """
-                        git tag ${env.APP_VERSION}
-                        git push origin ${env.APP_VERSION}
-                    """
+                    withEnv(["APP_VERSION=${nextVersion}"]) {
+                        sh """
+                            git tag $APP_VERSION
+                            git push origin $APP_VERSION
+                        """
+                    }
                 }
             }
         }

@@ -20,7 +20,7 @@ else:
 current_version = semver.VersionInfo.parse(latest.lstrip("v"))
 
 # Bump the minor version (you can also bump major or patch)
-next_version = current_version.bump_minor()
+next_version = current_version.bump_patch()
 
 # Print new version with 'v' prefix
 print(f"v{next_version}")
