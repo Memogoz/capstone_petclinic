@@ -4,7 +4,6 @@ pipeline {
     parameters {
         string(name: 'S3_BUCKET', defaultValue: 'default-terraform-state-bucket-871964', description: 'Enter the S3 bucket name')
         string(name: 'AWS_REGION', defaultValue: 'us-east-1', description: 'Enter the AWS region')
-        string(name: 'JENKINS_AWS_CREDENTIAL', defaultValue: '', description: 'Enter the Jenkins AWS credential ID')
     }
 
     environment {
@@ -136,7 +135,6 @@ pipeline {
                 script {
 
                     def isMR = env.CHANGE_ID != null
-                    def awsCredentialId = env.JENKINS_AWS_CREDENTIAL // Jenkins AWS credential ID
 
                     // Determine image tag: commit SHA for merge requests, or APP_VERSION otherwise
                     def tag = isMR ? "${GIT_COMMIT_SHORT}" : env.APP_VERSION
@@ -150,7 +148,7 @@ pipeline {
 
                     // Authenticate with ECR and push the image
                     // Example autenticate from cli:     aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <aws-account-id>.dkr.ecr.<region>.amazonaws.com
-                    docker.withRegistry("https://${env.ECR_URL}", awsCredentialId) {
+                    docker.withRegistry("https://${env.ECR_URL}") {
                         docker.image(fullImageName).push()
                     }
 
@@ -178,25 +176,27 @@ pipeline {
                 expression { return env.CHANGE_ID == null }
             }
             steps {
-                def region = params.AWS_REGION
-                sh """
-                    echo "Fetching Bastion IP..."
-                    BASTION_IP=\$(aws ec2 describe-instances \
-                        --region ${region} \
-                        --filters "Name=tag:Role,Values=bastion" "Name=instance-state-name,Values=running" \
-                        --query "Reservations[].Instances[].PublicIpAddress" \
-                        --output text)
+                script {
+                    def region = params.AWS_REGION
+                    sh """
+                        echo "Fetching Bastion IP..."
+                        BASTION_IP=\$(aws ec2 describe-instances \
+                            --region ${region} \
+                            --filters "Name=tag:Role,Values=bastion" "Name=instance-state-name,Values=running" \
+                            --query "Reservations[].Instances[].PublicIpAddress" \
+                            --output text)
 
-                    echo "Running Ansible playbook using bastion at \$BASTION_IP"
+                        echo "Running Ansible playbook using bastion at \$BASTION_IP"
 
-                    export ANSIBLE_CONFIG=./Ansible/ansible.cfg
+                        export ANSIBLE_CONFIG=./Ansible/ansible.cfg
 
-                    ~/venv/bin/ansible-playbook \
-                        -i ./Ansible/inventory.aws_ec2.yaml \
-                        ./Ansible/deploy-petclinic.yaml \
-                        --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.aws-keys/jenkins-worker-key -W %h:%p -q ubuntu@\$BASTION_IP'" \
-                        --private-key=~/.aws-keys/web-instances-key
-                """
+                        ~/venv/bin/ansible-playbook \
+                            -i ./Ansible/inventory.aws_ec2.yaml \
+                            ./Ansible/deploy-petclinic.yaml \
+                            --ssh-common-args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.aws-keys/jenkins-worker-key -W %h:%p -q ubuntu@\$BASTION_IP'" \
+                            --private-key=~/.aws-keys/web-instances-key || true
+                    """
+                }
             }
         }
     }
