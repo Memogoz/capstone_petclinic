@@ -71,10 +71,10 @@ pipeline {
                 script {
                     sh 'git fetch --tags'
 
-                    def nextVersion = sh(script: '~/venv/bin/python3 get_next_version.py', returnStdout: true).trim()
-                    echo "Next version: ${nextVersion}"
+                    APP_VERSION = sh(script: '~/venv/bin/python3 get_next_version.py', returnStdout: true).trim()
+                    echo "Next version: ${APP_VERSION}"
 
-                    withEnv(["APP_VERSION=${nextVersion}"]) {
+                    withEnv(["APP_VERSION=${APP_VERSION}"]) {
                         sh """
                             git tag $APP_VERSION
                             git push origin $APP_VERSION
@@ -92,7 +92,7 @@ pipeline {
 
                     def ecrRepoFullUrl = sh(script: "jq -r '.outputs.ecr_repo_url.value' ./terraform.tfstate", returnStdout: true).trim()
                     ECR_URL = ecrRepoFullUrl.split('/')[0]
-                    def ecrRepoName = ecrRepoFullUrl.split('/')[1]
+                    ECR_REPO_NAME = ecrRepoFullUrl.split('/')[1]
 
                     WEBSITE_URL     = sh(script: "jq -r '.outputs.website_url.value' ./terraform.tfstate", returnStdout: true).trim()
                     POSTGRES_HOST   = sh(script: "jq -r '.outputs.postgres_host.value' ./terraform.tfstate", returnStdout: true).trim()
@@ -102,7 +102,7 @@ pipeline {
                     POSTGRES_DB     = sh(script: "jq -r '.outputs.postgres_db.value' ./terraform.tfstate", returnStdout: true).trim()
 
                     echo "ECR_URL = ${ECR_URL}"
-                    echo "ECR_REPO_NAME = ${ecrRepoName}"
+                    echo "ECR_REPO_NAME = ${ECR_REPO_NAME}"
                     echo "WEBSITE_URL = ${WEBSITE_URL}"
                 }
             }
