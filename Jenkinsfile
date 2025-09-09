@@ -73,7 +73,7 @@ pipeline {
                     sh 'git fetch --tags'
 
                     // Save next version into environment variable
-                    def nextVersion = sh(script: 'python3 get_next_version.py', returnStdout: true).trim()
+                    def nextVersion = sh(script: '~/venv/bin/python3 get_next_version.py', returnStdout: true).trim()
                     env.APP_VERSION = nextVersion
 
                     // Tag the Git repo and push
