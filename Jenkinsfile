@@ -95,11 +95,12 @@ pipeline {
                     ECR_REPO_NAME = ecrRepoFullUrl.split('/')[1]
 
                     WEBSITE_URL     = sh(script: "jq -r '.outputs.website_url.value' ./terraform.tfstate", returnStdout: true).trim()
-                    POSTGRES_HOST   = sh(script: "jq -r '.outputs.postgres_host.value' ./terraform.tfstate", returnStdout: true).trim()
+                    def postgres_url   = sh(script: "jq -r '.outputs.postgres_host.value' ./terraform.tfstate", returnStdout: true).trim()
+                    POSTGRES_HOST   = postgres_url.split(':')[0]
                     POSTGRES_PORT   = sh(script: "jq -r '.outputs.postgres_port.value' ./terraform.tfstate", returnStdout: true).trim()
-                    POSTGRES_USER   = sh(script: "jq -r '.outputs.postgres_user.value' ./terraform.tfstate", returnStdout: true).trim()
+                    POSTGRES_USER   = sh(script: "jq -r '.outputs.postgres_username.value' ./terraform.tfstate", returnStdout: true).trim()
                     POSTGRES_PASSWORD = sh(script: "jq -r '.outputs.postgres_password.value' ./terraform.tfstate", returnStdout: true).trim()
-                    POSTGRES_DB     = sh(script: "jq -r '.outputs.postgres_db.value' ./terraform.tfstate", returnStdout: true).trim()
+                    POSTGRES_DB       = sh(script: "jq -r '.outputs.postgres_db_name.value' ./terraform.tfstate", returnStdout: true).trim()
 
                     echo "ECR_URL = ${ECR_URL}"
                     echo "ECR_REPO_NAME = ${ECR_REPO_NAME}"

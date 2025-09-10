@@ -109,7 +109,7 @@
 
     - name: Verify DB connection from the instance
       command: >
-        nc -z {{ postgres_host }} {{ postgres_port }}
+        nc -zv {{ postgres_host }} {{ postgres_port }}
       register: db_check
       failed_when: db_check.rc != 0
       changed_when: false
