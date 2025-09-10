@@ -184,6 +184,14 @@ pipeline {
                 }
             }
         }
+
+        // === Merge Request (MR) or Pull Request (PR) and Normal Commit ===
+        stage('Show website url') {
+            steps {
+                echo "Website URL: ${env.WEBSITE_URL}"
+            }
+        }
+
     }
 
     post {
