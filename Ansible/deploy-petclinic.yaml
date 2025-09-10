@@ -90,7 +90,7 @@
     - name: Run new container
       community.docker.docker_container:
         name: "{{ image_name }}"
-        image: "{{ ecr_url }}:{{ image_tag }}"
+        image: "{{ ecr_image_url }}:{{ image_tag }}"
         state: started
         restart_policy: always
         published_ports:
